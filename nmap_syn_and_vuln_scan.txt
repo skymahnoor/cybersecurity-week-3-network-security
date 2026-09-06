@@ -1,0 +1,131 @@
+TASK 8 - ADVANCED NMAP: SYN SCAN
+======================================================
+
+Command: sudo nmap -sS 192.168.139.129
+
+Starting Nmap 7.99 ( https://nmap.org ) at 2026-09-04 16:14 +0530
+Nmap scan report for 192.168.139.129
+Host is up (0.0020s latency).
+Not shown: 977 closed tcp ports (reset)
+PORT     STATE SERVICE
+21/tcp   open  ftp
+22/tcp   open  ssh
+23/tcp   open  telnet
+25/tcp   open  smtp
+53/tcp   open  domain
+80/tcp   open  http
+111/tcp  open  rpcbind
+139/tcp  open  netbios-ssn
+445/tcp  open  microsoft-ds
+512/tcp  open  exec
+513/tcp  open  login
+514/tcp  open  shell
+1099/tcp open  rmiregistry
+1524/tcp open  ingreslock
+2049/tcp open  nfs
+2121/tcp open  ccproxy-ftp
+3306/tcp open  mysql
+5432/tcp open  postgresql
+5900/tcp open  vnc
+6000/tcp open  X11
+6667/tcp open  irc
+8009/tcp open  ajp13
+8180/tcp open  unknown
+MAC Address: 00:0C:29:50:B2:92 (VMware)
+
+Nmap done: 1 IP address (1 host up) scanned in 1.03 seconds
+
+Observation: 23 open TCP ports identified via stealth SYN scan. This is the
+baseline "BEFORE" state used later in Task 13 hardening comparison.
+
+
+TASK 12 - VULNERABILITY ASSESSMENT: NSE VULN SCRIPT SCAN
+======================================================
+
+Command: sudo nmap --script vuln 192.168.139.129
+
+Starting Nmap 7.99 ( https://nmap.org ) at 2026-09-04 16:19 +0530
+Nmap scan report for 192.168.139.129
+Host is up (0.0015s latency).
+
+--- KEY FINDING 1: vsFTPd 2.3.4 Backdoor (CRITICAL) ---
+21/tcp open ftp
+| ftp-vsftpd-backdoor:
+|   VULNERABLE:
+|   vsFTPd version 2.3.4 backdoor
+|     State: VULNERABLE (Exploitable)
+|     IDs: CVE:CVE-2011-2523  BID:48539
+|     Disclosure date: 2011-07-03
+|     Exploit results:
+|       Shell command: id
+|       Results: uid=0(root) gid=0(root)
+|     References:
+|       https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2011-2523
+
+--- KEY FINDING 2: SSL POODLE (HIGH) - found on ports 25 and 5432 ---
+| ssl-poodle:
+|   VULNERABLE:
+|   SSL POODLE information leak
+|     State: VULNERABLE
+|     IDs: CVE:CVE-2014-3566  BID:70574
+|     Disclosure date: 2014-10-14
+|     Check results: TLS_RSA_WITH_AES_128_CBC_SHA
+
+--- KEY FINDING 3: Anonymous/Weak Diffie-Hellman (HIGH) ---
+| ssl-dh-params:
+|   VULNERABLE:
+|   Anonymous Diffie-Hellman Key Exchange MitM Vulnerability
+|   Transport Layer Security (TLS) Protocol DHE_EXPORT Ciphers Downgrade (Logjam)
+|     IDs: CVE:CVE-2015-4000  BID:74733
+|   Diffie-Hellman Key Exchange Insufficient Group Strength (1024-bit weak group)
+
+--- KEY FINDING 4: CCS Injection on PostgreSQL (HIGH) ---
+| ssl-ccs-injection:
+|   VULNERABLE:
+|   SSL/TLS MITM vulnerability (CCS Injection)
+|     Risk factor: High
+|     References: https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-0224
+
+--- KEY FINDING 5: HTTP CSRF Vulnerabilities (MEDIUM) ---
+| http-csrf:
+|   Found possible CSRF vulnerabilities on:
+|     /dvwa/ (login.php)
+|     /twiki/TWikiDocumentation.html (multiple forms)
+|     /mutillidae/index.php (register.php, source-viewer.php)
+|_http-trace: TRACE is enabled
+
+--- KEY FINDING 6: Directory/Admin Panel Enumeration (MEDIUM) ---
+| http-enum:
+|   /tikiwiki/, /test/, /phpinfo.php, /phpMyAdmin/, /doc/, /icons/, /index/
+
+--- KEY FINDING 7: RMI Registry Remote Code Execution (CRITICAL) ---
+1099/tcp open rmiregistry
+| rmi-vuln-classloader:
+|   VULNERABLE:
+|   RMI registry default configuration remote code execution vulnerability
+|     Default configuration allows loading classes from remote URLs -> RCE
+
+--- KEY FINDING 8: UnrealIRCd Backdoor (CRITICAL) ---
+6667/tcp open irc
+|_irc-unrealircd-backdoor: Looks like trojaned version of unrealircd.
+  Reference: http://seclists.org/fulldisclosure/2010/Jun/277
+
+--- KEY FINDING 9: Tomcat Admin Panel Cookie/Enum Issues (MEDIUM) ---
+8180/tcp open unknown (Apache Tomcat)
+| http-cookie-flags: JSESSIONID httponly flag not set (multiple admin paths)
+| http-enum:
+|   /manager/html/upload: Apache Tomcat (401 Unauthorized)
+|   /manager/html: Apache Tomcat (401 Unauthorized)
+|   Multiple default admin panel paths enumerated
+
+Host script results:
+|_smb-vuln-ms10-054: false
+|_smb-vuln-ms10-061: false
+
+Nmap done: 1 IP address (1 host up) scanned in 327.47 seconds
+
+Summary: 3 CRITICAL remote-code-execution-class findings (vsFTPd backdoor,
+RMI registry RCE, UnrealIRCd backdoor) plus multiple HIGH severity SSL/TLS
+weaknesses and MEDIUM severity web application issues (CSRF, directory
+enumeration, cookie flags). Full risk classification and remediation
+recommendations are documented in 03-Vulnerability-Assessment/.
